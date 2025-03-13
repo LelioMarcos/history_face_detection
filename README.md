@@ -1,2 +1,2 @@
 # history_face_detection
-Facial recognition in historical photographs.
+Analysing smiles with facial fecognition in historical photographs. Based on [this tutorial](https://programminghistorian.org/en/lessons/facial-recognition-ai-python) from the Programming Historian.
