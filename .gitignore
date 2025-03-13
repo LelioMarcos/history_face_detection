@@ -1,4 +1,4 @@
 images/
-haarcascade_frontalface_default.xml
+*.xml
 env/
 yearbooks/
