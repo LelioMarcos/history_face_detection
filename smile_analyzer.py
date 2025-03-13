@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import pandas as pd
 from multiprocessing.dummy import Pool as ThreadPool
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 import time
 
 def detect_faces(img):
@@ -22,8 +22,7 @@ def detect_smiles(img):
     return smiles
 
 def detect_faces_in_file(file):
-    FACES_LIMIT = 20
-    
+    FACES_LIMIT = 30 
     year = file.split('.')[0]
 
     pdf_path = os.path.join("./yearbooks", file)
@@ -49,6 +48,25 @@ def detect_faces_in_file(file):
         if count_faces >= FACES_LIMIT:
             break
 
+def detect_smiles_at_year(year):
+    files = os.listdir(f"./images/{year}")
+    count_smiles = 0
+
+    for file in files:
+        img = cv2.imread(f"./images/{year}/{file}")
+        smiles = detect_smiles(img)
+        if len(smiles) > 0:
+            count_smiles += 1
+
+    smile = {
+        "year": year,
+        "smile_count": count_smiles,
+        "nonsmile_count": len(files) - count_smiles,
+        "smile_factor": count_smiles / len(files) 
+    }
+    
+    return pd.DataFrame([smile])
+
 if __name__ == '__main__':
     years = []
     nprocs = 4
@@ -70,24 +88,17 @@ if __name__ == '__main__':
             files,
         )
 
+    print("Got all faces. Analysing smiles...")
+
     df_smiles = pd.DataFrame()
 
-    for year in years:
-        files = os.listdir(f"./images/{year}")
-        count_smiles = 0
-        for file in files:
-            img = cv2.imread(f"./images/{year}/{file}")
-            smiles = detect_smiles(img)
-            if len(smiles) > 0:
-                count_smiles += 1
-        smile = {
-            "year": year,
-            "smile_count": count_smiles,
-            "nonsmile_count": len(files) - count_smiles,
-            "smile_factor": count_smiles / len(files) 
-        }
-        df_smile = pd.DataFrame([smile])
-        df_smiles = pd.concat([df_smiles, df_smile], ignore_index=True)
+    with ProcessPoolExecutor(max_workers=nprocs) as executor:
+        futures = [executor.submit(detect_smiles_at_year,year) for year in years]
+
+        wait(futures)
+
+        for result in futures:
+            df_smiles = pd.concat([df_smiles, result.result()], ignore_index=True)
 
     df_smiles = df_smiles.sort_values(by=['year'], ignore_index=True)
 
